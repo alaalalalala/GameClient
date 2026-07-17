@@ -23,6 +23,10 @@
 // Note: Retail compatibility must not be broken before this project officially does.
 // Use RETAIL_COMPATIBLE_CRC and RETAIL_COMPATIBLE_XFER_SAVE to guard breaking changes.
 
+//#ifndef TEOD
+//#define TEOD (1) // The End of Days
+//#endif
+
 #ifndef PRESERVE_BUILDING_RESUMPTION_DELAY
 #define PRESERVE_BUILDING_RESUMPTION_DELAY (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
 #endif
@@ -119,6 +123,9 @@
 #else
 #define RETAIL_COMPATIBLE_XFER_SAVE (1) // Game is expected to be Xfer Save compatible with retail Generals 1.08, Zero Hour 1.04
 #endif
+#else
+#define RETAIL_COMPATIBLE_PATHFINDING (1)
+#endif
 #endif
 
 // This is here to easily toggle between the retail compatible pathfinding memory allocation and the new static allocated data mode
@@ -127,6 +134,7 @@
 #define RETAIL_COMPATIBLE_PATHFINDING_ALLOCATION (0)
 #else
 #define RETAIL_COMPATIBLE_PATHFINDING_ALLOCATION (1)
+#endif
 #endif
 #endif
 
@@ -158,7 +166,11 @@
 #endif
 
 #ifndef ALLOW_MONEY_PER_MINUTE_FOR_PLAYER
+#if defined(TEOD)
+#define ALLOW_MONEY_PER_MINUTE_FOR_PLAYER (0) // Change this when we have the UI for that.
+#else
 #define ALLOW_MONEY_PER_MINUTE_FOR_PLAYER (0) // When enabled, a money-per-minute stat is calculated and displayed in-game
+#endif
 #endif
 
 // Previously the configurable shroud sat behind #if defined(RTS_DEBUG)
