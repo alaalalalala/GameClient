@@ -98,6 +98,7 @@ static_assert(ARRAY_SIZE(WeaponSetFlags::s_bitNameList) == WeaponSetFlags::NumBi
 //-------------------------------------------------------------------------------------------------
 void WeaponTemplateSet::clear()
 {
+	m_fireCondition = WEAPONSET_FIRE_CONDITION_NONE;
 	m_isReloadTimeShared = false;
 	m_isWeaponLockSharedAcrossSets = FALSE;
 	m_types.clear();
@@ -118,6 +119,19 @@ Bool WeaponTemplateSet::hasAnyWeapons() const
 			return true;
 	}
 	return false;
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool WeaponSet::canFireWeapon(const Weapon *weapon, const Object *obj) const
+{
+	if (weapon == nullptr || obj == nullptr || m_curWeaponTemplateSet == nullptr)
+		return TRUE;
+
+	const WeaponSlotType slot = weapon->getWeaponSlot();
+	if (slot < PRIMARY_WEAPON || slot >= WEAPONSLOT_COUNT || m_weapons[slot] != weapon)
+		return TRUE;
+
+	return m_curWeaponTemplateSet->getFireCondition() != WEAPONSET_FIRE_CONDITION_RADAR_SYSTEM || obj->hasDeployedRadarInfluence();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -144,12 +158,23 @@ void WeaponTemplateSet::parsePreferredAgainst(INI* ini, void *instance, void * /
 	KindOfMaskType::parseFromINI(ini, instance, &self->m_preferredAgainst[wslot], nullptr);
 }
 
+void WeaponTemplateSet::parseFireConditions(INI* ini, void *instance, void * /*store*/, const void* userData)
+{
+	static const char *const fireConditionNames[] = { "None", "RadarSystem", nullptr };
+	WeaponTemplateSet* self = (WeaponTemplateSet*)instance;
+	Int condition = INI::scanIndexList(ini->getNextToken(), fireConditionNames);
+	if (condition < 0 || condition >= WEAPONSET_FIRE_CONDITION_COUNT)
+		throw INI_INVALID_DATA;
+	self->m_fireCondition = (WeaponSetFireConditionType)condition;
+}
+
 //-------------------------------------------------------------------------------------------------
 void WeaponTemplateSet::parseWeaponTemplateSet( INI* ini, const ThingTemplate* tt )
 {
 	static const FieldParse myFieldParse[] =
 	{
 		{ "Conditions", WeaponSetFlags::parseFromINI, nullptr, offsetof( WeaponTemplateSet, m_types ) },
+		{ "FireConditions", WeaponTemplateSet::parseFireConditions, nullptr, 0 },
 		{ "Weapon",	WeaponTemplateSet::parseWeapon,	nullptr, 0 },
 		{ "AutoChooseSources",	WeaponTemplateSet::parseAutoChoose, nullptr, 0 },
 		{ "PreferredAgainst", WeaponTemplateSet::parsePreferredAgainst, nullptr, 0 },
@@ -362,12 +387,54 @@ void WeaponSet::updateWeaponSet(const Object* obj)
 //-------------------------------------------------------------------------------------------------
 /*static*/ ModelConditionFlags WeaponSet::getModelConditionForWeaponSlot(WeaponSlotType wslot, WeaponSetConditionType a)
 {
-	static const ModelConditionFlagType Nothing[WEAPONSLOT_COUNT] = { MODELCONDITION_INVALID, MODELCONDITION_INVALID, MODELCONDITION_INVALID };
-	static const ModelConditionFlagType Firing[WEAPONSLOT_COUNT] = { MODELCONDITION_FIRING_A, MODELCONDITION_FIRING_B, MODELCONDITION_FIRING_C };
-	static const ModelConditionFlagType Betweening[WEAPONSLOT_COUNT] = { MODELCONDITION_BETWEEN_FIRING_SHOTS_A, MODELCONDITION_BETWEEN_FIRING_SHOTS_B, MODELCONDITION_BETWEEN_FIRING_SHOTS_C };
-	static const ModelConditionFlagType Reloading[WEAPONSLOT_COUNT] = { MODELCONDITION_RELOADING_A, MODELCONDITION_RELOADING_B, MODELCONDITION_RELOADING_C };
-	static const ModelConditionFlagType PreAttack[WEAPONSLOT_COUNT] = { MODELCONDITION_PREATTACK_A, MODELCONDITION_PREATTACK_B, MODELCONDITION_PREATTACK_C };
-	static const ModelConditionFlagType* Lookup[WSF_COUNT] = { Nothing, Firing, Betweening, Reloading, PreAttack };
+	static const ModelConditionFlagType Nothing[] = {
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static const ModelConditionFlagType Firing[] = {
+		MODELCONDITION_FIRING_A,
+		MODELCONDITION_FIRING_B,
+		MODELCONDITION_FIRING_C,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static const ModelConditionFlagType Betweening[] = {
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_A,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_B,
+		MODELCONDITION_BETWEEN_FIRING_SHOTS_C,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static const ModelConditionFlagType Reloading[] = {
+		MODELCONDITION_RELOADING_A,
+		MODELCONDITION_RELOADING_B,
+		MODELCONDITION_RELOADING_C,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static const ModelConditionFlagType PreAttack[] = {
+		MODELCONDITION_PREATTACK_A,
+		MODELCONDITION_PREATTACK_B,
+		MODELCONDITION_PREATTACK_C,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static const ModelConditionFlagType* Lookup[] = {
+		Nothing,
+		Firing,
+		Betweening,
+		Reloading,
+		PreAttack
+	};
+	static_assert(ARRAY_SIZE(Nothing) == WEAPONSLOT_COUNT, "Incorrect array size");
+	static_assert(ARRAY_SIZE(Firing) == WEAPONSLOT_COUNT, "Incorrect array size");
+	static_assert(ARRAY_SIZE(Betweening) == WEAPONSLOT_COUNT, "Incorrect array size");
+	static_assert(ARRAY_SIZE(Reloading) == WEAPONSLOT_COUNT, "Incorrect array size");
+	static_assert(ARRAY_SIZE(PreAttack) == WEAPONSLOT_COUNT, "Incorrect array size");
+	static_assert(ARRAY_SIZE(Lookup) == WSF_COUNT, "Incorrect array size");
 
 	ModelConditionFlags flags;	// defaults to all clear
 
@@ -375,8 +442,15 @@ void WeaponSet::updateWeaponSet(const Object* obj)
 	if (f != MODELCONDITION_INVALID)
 		flags.set(f);
 
-	static const ModelConditionFlagType Using[WEAPONSLOT_COUNT] = { MODELCONDITION_USING_WEAPON_A, MODELCONDITION_USING_WEAPON_B, MODELCONDITION_USING_WEAPON_C };
-	if (a != WSF_NONE)
+	static const ModelConditionFlagType Using[] = {
+		MODELCONDITION_USING_WEAPON_A,
+		MODELCONDITION_USING_WEAPON_B,
+		MODELCONDITION_USING_WEAPON_C,
+		MODELCONDITION_INVALID,
+		MODELCONDITION_INVALID
+	};
+	static_assert(ARRAY_SIZE(Using) == WEAPONSLOT_COUNT, "Incorrect array size");
+	if (a != WSF_NONE && Using[wslot] != MODELCONDITION_INVALID)
 		flags.set(Using[wslot]);
 
 	return flags;

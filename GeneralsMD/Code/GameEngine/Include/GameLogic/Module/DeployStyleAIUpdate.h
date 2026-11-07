@@ -97,6 +97,8 @@ public:
 
  	virtual void aiDoCommand(const AICommandParms* parms) override;
 	virtual Bool isIdle() const override;
+	virtual void setManualLockedDeploy(Bool locked, const Coord3D* deployPos) override;
+	virtual Bool isManualLockedDeploy() const override;
 	virtual UpdateSleepTime update() override;
 
 #if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
@@ -114,4 +116,12 @@ protected:
 
 	DeployStateTypes				m_state;
 	UnsignedInt							m_frameToWaitForDeploy;
+	Bool                    m_manualLockedDeploy;
+	Bool                    m_hasManualDeployPos;
+	Coord3D                 m_manualDeployPos;
+	Bool                    m_pendingManualUndeploy;
+	Bool                    m_pendingManualDeployLock;
+	Bool									m_hasSavedRanges;
+	Real									m_originalVisionRange;
+	Real									m_originalShroudClearingRange;
 };
