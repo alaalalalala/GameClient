@@ -250,6 +250,7 @@ public:
 
 	Player* getControllingPlayer() const;
 	Relationship getRelationship(const Object *that) const;
+	Bool hasDeployedRadarInfluence() const;
 
 	Color getIndicatorColor() const;
 	Color getNightIndicatorColor() const;
@@ -488,6 +489,7 @@ public:
 	UnsignedInt getMostPercentReadyToFireAnyWeapon() const;
 
 	Weapon* getWeaponInWeaponSlot(WeaponSlotType wslot) const { return m_weaponSet.getWeaponInWeaponSlot(wslot); }
+	Bool canFireWeapon(const Weapon* weapon) const { return m_weaponSet.canFireWeapon(weapon, this); }
 	UnsignedInt getWeaponInWeaponSlotCommandSourceMask( WeaponSlotType wSlot ) const { return m_weaponSet.getNthCommandSourceMask( wSlot ); }
 
 	// see if this current weapon set's weapons has shared reload times
