@@ -141,7 +141,9 @@ static const ModelConditionFlags s_allWeaponFireFlags[WEAPONSLOT_COUNT] =
 		MODELCONDITION_RELOADING_C,
 		MODELCONDITION_PREATTACK_C,
 		MODELCONDITION_USING_WEAPON_C
-	)
+	),
+	ModelConditionFlags(),
+	ModelConditionFlags()
 };
 
 //-------------------------------------------------------------------------------------------------
